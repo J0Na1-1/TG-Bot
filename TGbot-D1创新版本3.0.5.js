@@ -7763,6 +7763,37 @@ async function createTopic(from, key, env, userId) {
     if (userId) {
         await kvPut(env, `thread:${rec.thread_id}`, String(userId));
     }
+
+    // 发送并顶置用户资料卡
+    try {
+        const firstName = (from.first_name || "").trim() || "未知";
+        const lastName = (from.last_name || "").trim();
+        const username = from.username ? `@${from.username}` : "";
+        const fullName = lastName ? `${firstName} ${lastName}` : firstName;
+        const profileText = `👤 <b>用户资料卡</b>\n\n` +
+            `📛 名称：${escapeHtml(fullName)}\n` +
+            `🆔 ID：<code>${userId || "未知"}</code>\n` +
+            (username ? `🔗 用户名：${escapeHtml(username)}\n` : "") +
+            `📅 创建时间：${new Date().toLocaleString("zh-CN")}`;
+
+        const pinMsg = await tgCall(env, "sendMessage", {
+            chat_id: env.SUPERGROUP_ID,
+            message_thread_id: rec.thread_id,
+            text: profileText,
+            parse_mode: "HTML"
+        });
+
+        if (pinMsg.ok && pinMsg.result?.message_id) {
+            await tgCall(env, "pinChatMessage", {
+                chat_id: env.SUPERGROUP_ID,
+                message_id: pinMsg.result.message_id,
+                disable_notification: true
+            });
+        }
+    } catch (e) {
+        Logger.warn('createTopic_profile_card_failed', e);
+    }
+
     return rec;
 }
 
