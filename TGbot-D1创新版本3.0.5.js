@@ -727,6 +727,37 @@ async function getOrCreateUserTopicRecByUserId(env, userId) {
 
   await kvPut(env, userKey, JSON.stringify(rec));
   await kvPut(env, `thread:${rec.thread_id}`, String(userId));
+
+  // 发送并顶置用户资料卡
+  try {
+    const firstName = (userInfo?.first_name || "").trim() || "未知";
+    const lastName = (userInfo?.last_name || "").trim();
+    const username = userInfo?.username ? `@${userInfo.username}` : "";
+    const fullName = lastName ? `${firstName} ${lastName}` : firstName;
+    const profileText = `👤 <b>用户资料卡</b>\n\n` +
+      `📛 名称：${escapeHtml(fullName)}\n` +
+      `🆔 ID：<code>${userId}</code>\n` +
+      (username ? `🔗 用户名：${escapeHtml(username)}\n` : "") +
+      `📅 创建时间：${new Date().toLocaleString("zh-CN")}`;
+
+    const pinMsg = await tgCall(env, "sendMessage", {
+      chat_id: env.SUPERGROUP_ID,
+      message_thread_id: rec.thread_id,
+      text: profileText,
+      parse_mode: "HTML"
+    });
+
+    if (pinMsg.ok && pinMsg.result?.message_id) {
+      await tgCall(env, "pinChatMessage", {
+        chat_id: env.SUPERGROUP_ID,
+        message_id: pinMsg.result.message_id,
+        disable_notification: true
+      });
+    }
+  } catch (e) {
+    Logger.warn('getOrCreateUserTopicRecByUserId_profile_card_failed', e);
+  }
+
   return rec;
 }
 
