@@ -2341,6 +2341,9 @@ async function showBaseMenu(
   const verificationAnswer =
     await getConfig('verif_a', env);
 
+  const cfTunnelEnabled =
+    await getConfig('cf_tunnel_enabled', env) === 'true';
+
   const text = `
 ⚙️ <b>基础配置（人机验证）</b>
 
@@ -2348,6 +2351,7 @@ async function showBaseMenu(
 • 欢迎消息：${escapeHtml(welcomeMsg).slice(0, 30)}${welcomeMsg.length > 30 ? '…' : ''}
 • 验证问题：${escapeHtml(verificationQuestion).slice(0, 30)}${verificationQuestion.length > 30 ? '…' : ''}
 • 验证答案：<code>${escapeHtml(verificationAnswer)}</code>
+• Cloudflare Tunnel：<b>${cfTunnelEnabled ? '✅ 已启用' : '❌ 未启用'}</b>
 
 请选择要修改的配置项：
   `.trim();
@@ -2373,6 +2377,14 @@ async function showBaseMenu(
           text: '🔑 编辑验证答案',
           callback_data:
             'config:edit:verif_a'
+        }
+      ],
+      [
+        {
+          text: `🌐 Cloudflare Tunnel：${cfTunnelEnabled ? '✅ 启用' : '❌ 禁用'}`,
+          callback_data:
+            'config:toggle:cf_tunnel_enabled:' +
+            `${!cfTunnelEnabled}`
         }
       ],
       [
@@ -2722,6 +2734,30 @@ async function handleStart(
     'welcome_msg',
     env
   );
+
+  const cfTunnelEnabled =
+    await getConfig('cf_tunnel_enabled', env) === 'true';
+
+  if (cfTunnelEnabled) {
+    await dbUserUpdate(
+      chatId,
+      {
+        user_state: USER_STATE.VERIFIED
+      },
+      env
+    );
+
+    await telegramApi(
+      env.BOT_TOKEN,
+      'sendMessage',
+      {
+        chat_id: chatId,
+        text: welcomeMessage
+      }
+    );
+
+    return;
+  }
 
   const verificationQuestion =
     await getConfig('verif_q', env);
@@ -4702,7 +4738,8 @@ async function handleConfigCallback(
       'enable_sticker_forwarding',
       'enable_user_forwarding',
       'enable_group_forwarding',
-      'enable_channel_forwarding'
+      'enable_channel_forwarding',
+      'cf_tunnel_enabled'
     ]);
 
     if (!allowedToggleKeys.has(key)) {
