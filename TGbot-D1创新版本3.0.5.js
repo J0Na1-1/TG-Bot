@@ -5303,6 +5303,27 @@ export default {
       );
     }
 
+    // Cloudflare Tunnel 验证：检查自定义头部
+    const tunnelToken = request.headers.get(
+      'X-Tunnel-Token'
+    );
+
+    if (
+      !tunnelToken ||
+      tunnelToken !== env.TUNNEL_TOKEN
+    ) {
+      console.warn(
+        '收到未通过 Cloudflare Tunnel 验证的请求。'
+      );
+
+      return new Response(
+        'Unauthorized',
+        {
+          status: 401
+        }
+      );
+    }
+
     let update;
 
     try {
